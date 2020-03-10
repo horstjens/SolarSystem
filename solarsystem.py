@@ -1,9 +1,9 @@
 """
-Idea: create a solar system with acceptable physic in python3 
-capable of different rendering different planets. 
-Graphic Viewer seperated from Game engine, later hopefully different 
+Idea: create a solar system with acceptable physic in python3
+capable of different rendering different planets.
+Graphic Viewer seperated from Game engine, later hopefully different
 Viewers will be coded. At the moment only pygame
-authors: Horst JENS, DI Johannes Nedwich 
+authors: Horst JENS, DI Johannes Nedwich
 email: horstjens@gmail.com
 contact: see http://spielend-programmieren.at/de:kontakt
 license: gpl, see http://www.gnu.org/licenses/gpl-3.0.de.html
@@ -134,6 +134,8 @@ class Game:
 
         CelestialBody(mass=0.7, position=pygame.math.Vector3(-2,0,0),
                       velocity = pygame.math.Vector3(0,-4,0))
+        CelestialBody(mass=2.5, position=pygame.math.Vector3(2.6,2.5,0),
+                      velocity=pygame.math.Vector3(1, -3, 0))
 
         #self.timestep()
 
@@ -357,6 +359,7 @@ class PlanetSprite(VectorSprite):
 
     def _overwrite_parameters(self):
         super()._overwrite_parameters()
+        self.oldposlist = [self.pos, self.pos]
 
     def create_image(self):
         self.image = pygame.Surface((100,100))
@@ -365,6 +368,12 @@ class PlanetSprite(VectorSprite):
         self.image.convert_alpha()
         self.image0 = self.image.copy()
         self.rect = self.image.get_rect()
+
+    def update(self, seconds):
+        super().update(seconds)
+        self.oldposlist.append(self.pos)
+        if len(self.oldposlist)> 300:
+            self.oldposlist.pop(0)
 
 
 class Flytext(VectorSprite):
@@ -552,7 +561,11 @@ class Viewer():
 
         #for p in self.planetgroup:
         #    p.pos = gridpos_to_pixelvector(p.planet.position)
-        self.dirtyrects = self.background.get_rect()
+        self.screen.blit(self.background, (0, 0))  # overwrite everything
+        self.dirtyrects = [self.background.get_rect()]
+        for p in self.planetgroup:
+            p.oldposlist = []
+
 
 
     def run(self):
@@ -560,11 +573,12 @@ class Viewer():
         running = True
         pygame.mouse.set_visible(True)
         #oldleft, oldmiddle, oldright = False, False, False
+        self.dirtyrects = []
         self.draw_grid()
 
         while running:
 
-            dirtyrects = []
+
             milliseconds = self.clock.tick(self.fps)  #
             seconds = milliseconds / 1000
 
@@ -633,16 +647,24 @@ class Viewer():
 
             # ============== draw screen =================
             # screen_without_sprites = self.screen.copy()
-            # self.allgroup.clear(bgd=self.screen)
+            self.allgroup.clear(self.screen, bgd=self.background)
 
             #self.allgroup.clear(self.screen, self.spriteless_background)
-            self.screen.blit(self.background, (0,0) ) # overwrite everything
+            #self.screen.blit(self.background, (0,0) ) # overwrite everything
             #self.draw_grid()
             self.allgroup.update(seconds)
+            for planet in self.planetgroup:
+                for i, pos in enumerate(planet.oldposlist):
+                    if i < 3:
+                        continue
+                    x,y = pos
+                    x2, y2 = planet.oldposlist[i-1]
+
+                    pygame.draw.line(self.screen, planet.color, (x,y),(x2,y2))
 
 
-            self.draw_log()  # always draw panel #über allgropu draw: münzen sichtbar,  flackert
-            dirtyrects = self.allgroup.draw(self.screen)
+            #self.draw_log()  # always draw panel #über allgropu draw: münzen sichtbar,  flackert
+            self.dirtyrects.extend(self.allgroup.draw(self.screen))
 
             # write text below sprites
             fps_text = "FPS: {:5.3}".format(self.clock.get_fps())
@@ -650,7 +672,8 @@ class Viewer():
             write(self.screen, text=fps_text, origin="bottomright", x=Viewer.width - 2, y=Viewer.height - 2,
                   font_size=16, bold=True, color=(255, 255, 255))
 
-            pygame.display.update(dirtyrects)
+            pygame.display.update(self.dirtyrects)
+            self.dirtyrects = []
             #pygame.display.flip()
         # -----------------------------------------------------
         pygame.mouse.set_visible(True)
