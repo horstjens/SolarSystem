@@ -646,13 +646,13 @@ class Viewer():
 
 
             # ============== draw screen =================
-            # screen_without_sprites = self.screen.copy()
-            self.allgroup.clear(self.screen, bgd=self.background)
 
-            #self.allgroup.clear(self.screen, self.spriteless_background)
-            #self.screen.blit(self.background, (0,0) ) # overwrite everything
+            ##self.allgroup.clear(self.screen, bgd=self.background)
+            self.screen.blit(self.background, (0,0) ) # overwrite everything
             #self.draw_grid()
             self.allgroup.update(seconds)
+            self.dirtyrects.extend(self.allgroup.draw(self.screen))
+
             for planet in self.planetgroup:
                 for i, pos in enumerate(planet.oldposlist):
                     if i < 3:
@@ -662,19 +662,15 @@ class Viewer():
 
                     pygame.draw.line(self.screen, planet.color, (x,y),(x2,y2))
 
-
-            #self.draw_log()  # always draw panel #über allgropu draw: münzen sichtbar,  flackert
-            self.dirtyrects.extend(self.allgroup.draw(self.screen))
-
             # write text below sprites
             fps_text = "FPS: {:5.3}".format(self.clock.get_fps())
             pygame.draw.rect(self.screen, (0, 0, 0), (Viewer.width - 110, Viewer.height - 20, 110, 20))
             write(self.screen, text=fps_text, origin="bottomright", x=Viewer.width - 2, y=Viewer.height - 2,
                   font_size=16, bold=True, color=(255, 255, 255))
-
-            pygame.display.update(self.dirtyrects)
+            self.dirtyrects.append(  pygame.Rect(Viewer.width-50, Viewer.height-25, 50,25))
+            #pygame.display.update(self.dirtyrects)
             self.dirtyrects = []
-            #pygame.display.flip()
+            pygame.display.flip()
         # -----------------------------------------------------
         pygame.mouse.set_visible(True)
         pygame.quit()
