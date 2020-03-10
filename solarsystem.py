@@ -1,21 +1,13 @@
 """
-Idea: create a roguelike game in python3 inspired by dungeon crawl,
-capable of different graphic engines (at the moment: pygame)
-author: Horst JENS
+Idea: create a solar system with acceptable physic in python3 
+capable of different rendering different planets. 
+Graphic Viewer seperated from Game engine, later hopefully different 
+Viewers will be coded. At the moment only pygame
+authors: Horst JENS, DI Johannes Nedwich 
 email: horstjens@gmail.com
 contact: see http://spielend-programmieren.at/de:kontakt
 license: gpl, see http://www.gnu.org/licenses/gpl-3.0.de.html
 download: https://github.com/horstjens/roguebasin_python3
-
-based on: http://www.roguebasin.com/index.php?title=Complete_Roguelike_Tutorial,_using_python%2Blibtcod,_part_4
-
-field of view and exploration
-see http://www.roguebasin.com/index.php?title=Comparative_study_of_field_of_view_algorithms_for_2D_grid_based_worlds
-
-field of view improving, removing of artifacts:
-see https://sites.google.com/site/jicenospam/visibilitydetermination
-
-graphics mostly from Dungeon Crawl: http://crawl.develz.org/
 """
 
 import pygame
