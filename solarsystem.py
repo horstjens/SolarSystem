@@ -12,11 +12,20 @@ download: https://github.com/horstjens/roguebasin_python3
 
 import pygame
 import random
-#import math
+import math
 # import inspect
 
 import os
 
+AU_TO_KM =149597870.7  # astronomical units to km
+ME_TO_KG = 5.97237e24  # mass of earth in kg
+GRAVCONST = 1.1857e-4  # gravitational constant in AU³ / M_E * a²    .. is the same as 0.000118...
+GRAD_TO_RAD = math.pi / 180
+RAD_TO_GRAD = 1 / GRAD_TO_RAD
+
+def initialspeed(distance_to_sun, boss_mass):
+    """calculates and returns the initialspeed of a planet """
+    return (2*GRAVCONST * boss_mass / distance_to_sun )**0.5 * 2 * math.pi /8.885532070731612 # correction-factor
 
 def float_range(A, L=None, D=None):
     """
@@ -120,7 +129,7 @@ def write(background, text, x=50, y=150, color=(0, 0, 0),
 # declare constants
 class Game:
     """solar system"""
-    gravconst = 1.1857e-4 # AU³ / M_E * a²    .. is the same as 0.000118...
+    #sun_mass = 332937
     objects = {}
     deltas = [(1/365.25/24/60/60, "1 second"),(1/365.25/24/60, "1 minute"), (1/365.25/24, "1 hour"),
               (1/365.25, "1 day"), (2/365.25, "2 days"), (3/365.25, "3 days"),
@@ -134,16 +143,27 @@ class Game:
 
     def __init__(self):
         print("Planet system intitalized...")
-        # sun
-        CelestialBody(mass=332937, position=pygame.math.Vector3(0,0,0),
-                      velocity=pygame.math.Vector3(0,0,0))
-        # earth
-        CelestialBody() # default values
+        # sun , should be first object and NEEDS a velocity, even if 0
+        CelestialBody(name="sun" ,position=pygame.math.Vector3(0,0,0),
+                      velocity=pygame.math.Vector3(0,0,0),
+                      mass=332937, radius= 695700/ AU_TO_KM,)
+        # mercury
+        CelestialBody(name="mercury", position=pygame.math.Vector3(0.387098, 0, 0  ),
+                      mass=3.3011e23 / ME_TO_KG,
+                      radius = 2439.7 / AU_TO_KM)
+        # venus
+        CelestialBody(name="venus", position=pygame.math.Vector3(0.723332, 0, 0),
+                      mass=4.8675e24 / ME_TO_KG,
+                      radius=6051.8 / AU_TO_KM)
 
-        CelestialBody(mass=0.7, position=pygame.math.Vector3(-2,0,0),
-                      velocity = pygame.math.Vector3(0,-4,0))
-        CelestialBody(mass=2.5, position=pygame.math.Vector3(2.6,2.5,0),
-                      velocity=pygame.math.Vector3(1, -3, 0))
+        # earth
+        CelestialBody(name="earth", position=pygame.math.Vector3(1,0,0),
+
+                      mass=1 ,radius = 6378.1 / AU_TO_KM)
+                      #velocity=pygame.math.Vector3(0, -6.28,0),
+        # mars
+        CelestialBody(name="mars", position=pygame.math.Vector3(1.523679,0,0),
+                      mass=6.4171e23 / ME_TO_KG, radius=3389.5 / AU_TO_KM )
 
         #self.timestep()
 
@@ -157,9 +177,15 @@ class Game:
                     continue
                 #distance_vector = a.position - b.position # vec3
                 distance_vector = b.position - a.position
-                acc += self.gravconst * b.mass / distance_vector.length()**3 * distance_vector # vec3
-            a.position += self.delta_t * seconds *  (a.velocity + acc * self.delta_t * seconds /2)
-            a.velocity += acc * self.delta_t * seconds
+                acc +=  b.mass / distance_vector.length()**3 * distance_vector # vec3
+            acc *= GRAVCONST
+            #a.position += self.delta_t * seconds *  (a.velocity + acc * self.delta_t * seconds /2)
+            a.velocity_new = a.velocity  + acc * self.delta_t * seconds
+            a.position_new = a.position + self.delta_t * seconds *  (a.velocity + a.velocity_new) /2
+        for a in Game.objects.values():
+            a.velocity = a.velocity_new
+            a.position = a.position_new
+
 
 
 class CelestialBody:
@@ -168,15 +194,40 @@ class CelestialBody:
 
     def __init__(self, mass=1,
                  position=pygame.math.Vector3(1,0,0),
-                 velocity=pygame.math.Vector3(0,6.28,0)):
+                 velocity=None, boss=None, radius=None, name=None):
         self.mass = mass # earth units
         self.position = position # astronomical units (sol->earth distance)
         self.velocity = velocity # astronomical units per year
+        self.boss = boss
+        self.name = name
+
+        if self.velocity is None:
+            if boss is None:
+                self.boss = Game.objects[0]  # first object should be the sun
+            boss_to_me = self.position - self.boss.position
+            distance = boss_to_me.length()
+            angle = boss_to_me.angle_to(pygame.math.Vector3(1,0,0))
+
+            speed = initialspeed(distance, self.boss.mass )
+            # real planets circle counterclockwise
+            # because pygames coordinate-system is flipped (y goes down positive),
+            # math.cos is here with negative sign
+            self.velocity = pygame.math.Vector3(-speed * math.sin(angle * GRAD_TO_RAD),
+                                                -speed * math.cos(angle * GRAD_TO_RAD),0)
+            print(self.name, speed)
+        self.position_new = None
+        self.velocity_new = None
+
+        self.radius = radius
+
         # automatically assign a number
         self.number = CelestialBody.number
         CelestialBody.number += 1
         # automatically insert into Game.objects
         Game.objects[self.number] = self
+        if self.name is None:
+            self.name = "planet_{}".format(self.number)
+
 
 class VectorSprite(pygame.sprite.Sprite):
     """base class for sprites. this class inherits from pygames sprite class"""
@@ -429,7 +480,7 @@ class Viewer():
         Viewer.height = height
         Viewer.zero = [Viewer.width//2, Viewer.height//2]
         #self.resize_grid((Viewer.width- 6) // 8)
-        self.resize_grid(200)
+
 
         pygame.init()
         # player center in pixel
@@ -474,6 +525,7 @@ class Viewer():
         self.prepare_spritegroups()
         #self.cursor = CursorSprite(pos=pygame.math.Vector2(x=Viewer.pcx, y=Viewer.pcy))
         self.prepare_sprites()
+        self.resize_grid(200)
         self.run()
 
     def resize_grid(self, lenght):
@@ -481,6 +533,8 @@ class Viewer():
         Viewer.grid_size = (lenght, lenght)
         Viewer.intervals = ((Viewer.width - 0)/Viewer.grid_size[0],  (Viewer.height - 0) / Viewer.grid_size[1])
         print("grid, intervals, zero", self.grid_size, self.intervals, self.zero)
+        for p in self.planetgroup:
+            p.create_image()
 
 
 
@@ -491,7 +545,7 @@ class Viewer():
             else:
                 c, r = (random.randint(50,200), random.randint(50,200), random.randint(50,200)), 15
             PlanetSprite(pos=gridpos_to_pixelvector(planet.position),
-                         move=pygame.math.Vector2(0,0), color=c, radius=r, planet=planet)
+                         move=pygame.math.Vector2(0,0), color=c, planet=planet, radius=max(2, planet.radius * Viewer.grid_size[0]))
 
     def prepare_spritegroups(self):
         self.allgroup = pygame.sprite.LayeredUpdates()  # for drawing
