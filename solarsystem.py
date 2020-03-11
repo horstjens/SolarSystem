@@ -122,7 +122,15 @@ class Game:
     """solar system"""
     gravconst = 1.1857e-4 # AU³ / M_E * a²    .. is the same as 0.000118...
     objects = {}
-    delta_t = 1 / 365.25  # = 1 day
+    deltas = [(1/365.25/24/60/60, "1 second"),(1/365.25/24/60, "1 minute"), (1/365.25/24, "1 hour"),
+              (1/365.25, "1 day"), (2/365.25, "2 days"), (3/365.25, "3 days"),
+              (4/365.25, "4 days"),(5/365.25, "5 days"), (6/365.25, "6 days"),
+              (7/365.25, "1 week"),(14/365.25, "2 weeks"), (21/365.25, "3 weeks"),
+              (28/365.25, "4 weeks"), (1/4, "1/4 year"), (1/2, "1/2 year"), (1, "1 year"),
+              ]
+    i = 3
+    delta_t = deltas[i][0] #1 / 365.25  # = 1 day
+    paused = False
 
     def __init__(self):
         print("Planet system intitalized...")
@@ -139,7 +147,9 @@ class Game:
 
         #self.timestep()
 
-    def timestep(self):
+    def timestep(self, seconds):
+        if self.paused:
+            return
         for a in Game.objects.values():
             acc = pygame.Vector3(0,0,0)
             for b in Game.objects.values():
@@ -148,8 +158,8 @@ class Game:
                 #distance_vector = a.position - b.position # vec3
                 distance_vector = b.position - a.position
                 acc += self.gravconst * b.mass / distance_vector.length()**3 * distance_vector # vec3
-            a.position += self.delta_t * (a.velocity + acc * self.delta_t /2)
-            a.velocity += acc * self.delta_t
+            a.position += self.delta_t * seconds *  (a.velocity + acc * self.delta_t * seconds /2)
+            a.velocity += acc * self.delta_t * seconds
 
 
 class CelestialBody:
@@ -357,13 +367,15 @@ class VectorSprite(pygame.sprite.Sprite):
 
 class PlanetSprite(VectorSprite):
 
+    history = 300 # how many positions are saved to draw tracer lines
+
     def _overwrite_parameters(self):
         super()._overwrite_parameters()
         self.oldposlist = [self.pos, self.pos]
 
     def create_image(self):
-        self.image = pygame.Surface((100,100))
-        pygame.draw.circle(self.image, self.color, (50,50), self.radius)
+        self.image = pygame.Surface((2*self.radius,2*self.radius))
+        pygame.draw.circle(self.image, self.color, (self.radius,self.radius), self.radius)
         self.image.set_colorkey((0,0,0))
         self.image.convert_alpha()
         self.image0 = self.image.copy()
@@ -372,7 +384,7 @@ class PlanetSprite(VectorSprite):
     def update(self, seconds):
         super().update(seconds)
         self.oldposlist.append(self.pos)
-        if len(self.oldposlist)> 300:
+        if len(self.oldposlist)> self.history:
             self.oldposlist.pop(0)
 
 
@@ -454,7 +466,7 @@ class Viewer():
 
         Viewer.grid_size = (lenght, lenght)
         Viewer.intervals = ((Viewer.width - 0)/Viewer.grid_size[0],  (Viewer.height - 0) / Viewer.grid_size[1])
-        print("grid, intervals, zero", self.grid_size, self.intervals, self.zero)
+        #print("grid, intervals, zero", self.grid_size, self.intervals, self.zero)
 
 
     def prepare_sprites(self):
@@ -513,58 +525,47 @@ class Viewer():
 
     def draw_grid(self):
         self.background.fill((0, 0, 0))
-        c = (0,128,0)
-        #startx = Viewer.zero[0] - (Viewer.intervals[0] / 2 * Viewer.grid_size[0])
-        #print("startx", startx)
+        c = (0,128,0) # dark green color of grid
 
 
+        # right
         for fx in float_range(Viewer.zero[0], Viewer.width+1, self.grid_size[0]):
             x = int(round(fx,0))
             pygame.draw.line(self.background, c, (x,0), (x, Viewer.height-Viewer.log_height),1)
             write(self.background, "{:.1f}".format(pixel_to_gridvector((x,0))[0]),
                   color=c, font_size=10, x= x-15, y=Viewer.height//2 +5, origin="topright")
-
+        # left
         for fx in float_range(Viewer.zero[0], -1, -self.grid_size[0]):
             x = int(round(fx, 0))
             pygame.draw.line(self.background, c, (x, 0), (x, Viewer.height - Viewer.log_height), 1)
             write(self.background, "{:.2f}".format(pixel_to_gridvector((x, 0))[0]),
                   color=c, font_size=10, x=x - 15, y=Viewer.height // 2 + 5, origin="topright")
-
+        # lower
         for fy in float_range(Viewer.zero[1], Viewer.height+1, self.grid_size[1]):
             y = int(round(fy,0))
             pygame.draw.line(self.background, c, (0,y), (Viewer.width, y),1)
             write(self.background, "{:.1f}".format(pixel_to_gridvector((0,y))[1]),
                   color=c, font_size=10, x= Viewer.width//2-5, y=y+2, origin="topright")
-
+        # upper
         for fy in float_range(Viewer.zero[1], -1, -self.grid_size[1]):
             y = int(round(fy,0))
             pygame.draw.line(self.background, c, (0,y), (Viewer.width, y),1)
             write(self.background, "{:.1f}".format(pixel_to_gridvector((0,y))[1]),
                   color=c, font_size=10, x= Viewer.width//2-5, y=y+2, origin="topright")
-
-
-        #starty = Viewer.zero[1] - (Viewer.intervals[1] / 2 * Viewer.grid_size[1])
-
-        #for fy in float_range(starty, Viewer.height-Viewer.log_height, self.grid_size[1]):
-        #    y = int(round(fy,0))
-        #    pygame.draw.line(self.background, c, (0, y), (Viewer.width, y), 1 )
-        #    textsurface = make_text(str((y - Viewer.zero[1]) // Viewer.grid_size[1]), font_color=c, font_size=10)[0]
-        #    self.background.blit(textsurface, (5, y+15))
         # --axis--
         write(self.background, "X-axis --->", color=c, font_size=10, x=Viewer.width, y=Viewer.height//2 -5, origin="bottomright")
         textsurface = make_text("--> Y", font_color=c, font_size=10)[0]
         textsurface = pygame.transform.rotate(textsurface, -90)
         self.background.blit(textsurface, (Viewer.width //2+5, Viewer.height - Viewer.log_height -35))
-        # legend on x-axis
+        # --legend on x-axis
         write(self.background, "screen width {} pixel = {:.8f} AU".format(Viewer.width, Viewer.width / Viewer.grid_size[0]),
                        color=c, font_size=10,x=15, y=Viewer.height//2-15)
-
-        #for p in self.planetgroup:
-        #    p.pos = gridpos_to_pixelvector(p.planet.position)
+        # blit new background on screen, deleting everything
         self.screen.blit(self.background, (0, 0))  # overwrite everything
         self.dirtyrects = [self.background.get_rect()]
-        for p in self.planetgroup:
-            p.oldposlist = []
+        if not self.draw_lazy:
+            for p in self.planetgroup:
+                p.oldposlist = [] # kill old tracers
 
 
 
@@ -573,6 +574,7 @@ class Viewer():
         running = True
         pygame.mouse.set_visible(True)
         #oldleft, oldmiddle, oldright = False, False, False
+        self.draw_lazy = False
         self.dirtyrects = []
         self.draw_grid()
 
@@ -584,7 +586,7 @@ class Viewer():
 
             self.playtime += seconds
             # -----update planet positions-----
-            self.game.timestep()
+            self.game.timestep(seconds)
             # iterate planet sprites
             for p in self.planetgroup:
                 p.pos = gridpos_to_pixelvector(p.planet.position)
@@ -613,6 +615,27 @@ class Viewer():
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         running = False
+                    if event.key == pygame.K_SPACE:
+                        self.game.paused = not self.game.paused
+                    if event.key == pygame.K_PAGEUP:
+                        Game.i += 1
+                        Game.i = minmax(Game.i, 0, len(Game.deltas)-1)
+                        Game.delta_t = Game.deltas[Game.i][0]
+                    if event.key == pygame.K_PAGEDOWN:
+                        Game.i -= 1
+                        Game.i = minmax(Game.i, 0, len(Game.deltas) - 1)
+                        Game.delta_t = Game.deltas[Game.i][0]
+                    if event.key == pygame.K_BACKSPACE:
+                        self.draw_lazy = not self.draw_lazy
+                    if event.key == pygame.K_INSERT:
+                        PlanetSprite.history += 100
+                        PlanetSprite.history = minmax(PlanetSprite.history, 0, 10000)
+                    if event.key == pygame.K_DELETE:
+                        PlanetSprite.history -= 100
+                        PlanetSprite.history = minmax(PlanetSprite.history, 0, 10000)
+                        for p in self.planetgroup:
+                            p.oldposlist = p.oldposlist[len(p.oldposlist)-PlanetSprite.history:]
+
                     # ----------- magic with ctrl key and dynamic key -----
                     # if pressed_keys[pygame.K_RCTRL] or pressed_keys[pygame.K_LCTRL]:
                     #if event.mod & pygame.KMOD_CTRL:  # any or both ctrl keys are pressed
@@ -646,9 +669,10 @@ class Viewer():
 
 
             # ============== draw screen =================
-
-            ##self.allgroup.clear(self.screen, bgd=self.background)
-            self.screen.blit(self.background, (0,0) ) # overwrite everything
+            if self.draw_lazy:
+               self.allgroup.clear(self.screen, bgd=self.background)
+            else:
+               self.screen.blit(self.background, (0,0) ) # overwrite everything
             #self.draw_grid()
             self.allgroup.update(seconds)
             self.dirtyrects.extend(self.allgroup.draw(self.screen))
@@ -663,14 +687,22 @@ class Viewer():
                     pygame.draw.line(self.screen, planet.color, (x,y),(x2,y2))
 
             # write text below sprites
-            fps_text = "FPS: {:5.3}".format(self.clock.get_fps())
-            pygame.draw.rect(self.screen, (0, 0, 0), (Viewer.width - 110, Viewer.height - 20, 110, 20))
-            write(self.screen, text=fps_text, origin="bottomright", x=Viewer.width - 2, y=Viewer.height - 2,
-                  font_size=16, bold=True, color=(255, 255, 255))
-            self.dirtyrects.append(  pygame.Rect(Viewer.width-50, Viewer.height-25, 50,25))
-            #pygame.display.update(self.dirtyrects)
-            self.dirtyrects = []
-            pygame.display.flip()
+
+            status = "FPS: {:5.3} ".format(self.clock.get_fps())
+            status += "[PgUp/PgDown]: timescale: 1 second = {} ".format(Game.deltas[Game.i][1])
+            status += "[BACKSPACE]: {} drawing ".format("lazy" if self.draw_lazy else "clean")
+            status += "[INS/DEL]: tracer length: {} ".format(PlanetSprite.history)
+            status += "[SPACE]: Simulation {} ".format("paused" if self.game.paused else "running")
+            textsurface, pos = make_text(status, font_color=(255,255,255),font_size=12, bold=True)
+            pygame.draw.rect(self.screen, (0, 0, 0), (5, Viewer.height- pos[1], pos[0], pos[1]))
+            self.screen.blit(textsurface, (5, Viewer.height - pos[1]))
+
+            self.dirtyrects.append(  pygame.Rect(5, Viewer.height-pos[1], pos[0], pos[1]))
+            if self.draw_lazy:
+                pygame.display.update(self.dirtyrects)
+                self.dirtyrects = []
+            else:
+                pygame.display.flip()
         # -----------------------------------------------------
         pygame.mouse.set_visible(True)
         pygame.quit()
