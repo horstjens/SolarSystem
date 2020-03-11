@@ -437,6 +437,20 @@ class Viewer():
         self.screen = pygame.display.set_mode((self.width, self.height), pygame.DOUBLEBUF)
         Viewer.logscreen = pygame.Surface( (Viewer.width, Viewer.height - Viewer.log_height))
         self.clock = pygame.time.Clock()
+        self.help = [" -*-*- Welcome to Solar System Simulation -*-*-   ",
+                     "press [h] to see this help text again",
+                     "move around with Keypad [4],[8],[6],[2] keys",
+                     "center on origin with Keypad [5] key",
+                     "zoom in with Keypad [+] key or mousewheel",
+                     "zoom out with Keypad [-] key or mousewheel",
+                     "return to standard zoom with Keypad [ENTER] key",
+                     "toggle pause of simulation with [SPACE] key",
+                     "toggle drawing mode with [BACKSPACE] key",
+                     "change simulation speed with [PageUp] / [PageDown] keys",
+                     "change tracer length with [Ins] / [Del] keys",
+                     ]
+        #"edit planets by editing class Game in the source code",
+        # "playing instructions:",
 
         self.playtime = 0.0
         # ------ surfaces for radar, panel and log ----
@@ -466,7 +480,8 @@ class Viewer():
 
         Viewer.grid_size = (lenght, lenght)
         Viewer.intervals = ((Viewer.width - 0)/Viewer.grid_size[0],  (Viewer.height - 0) / Viewer.grid_size[1])
-        #print("grid, intervals, zero", self.grid_size, self.intervals, self.zero)
+        print("grid, intervals, zero", self.grid_size, self.intervals, self.zero)
+
 
 
     def prepare_sprites(self):
@@ -481,11 +496,11 @@ class Viewer():
     def prepare_spritegroups(self):
         self.allgroup = pygame.sprite.LayeredUpdates()  # for drawing
         #self.whole_screen_group = pygame.sprite.Group()
-        self.flytextgroup = pygame.sprite.Group()
+        self.flytextgroup = pygame.sprite.LayeredUpdates()
         #self.cursorgroup = pygame.sprite.Group()
         self.planetgroup = pygame.sprite.Group()
         VectorSprite.groups = self.allgroup
-        Flytext.groups = self.allgroup, self.flytextgroup
+        Flytext.groups =  self.flytextgroup # NOT in allgroup!
         PlanetSprite.groups = self.allgroup, self.planetgroup
         #CursorSprite.groups = self.allgroup
 
@@ -526,40 +541,48 @@ class Viewer():
     def draw_grid(self):
         self.background.fill((0, 0, 0))
         c = (0,128,0) # dark green color of grid
-
-
+        step = self.grid_size[0]
+        precision = 0
+        axis_string = "{:.0f}"
+        if self.grid_size[0] > 350:
+            step = self.grid_size[0] / (self.grid_size[0] / 350)
+            precision = 3
+            axis_string = "{:.3f}"
+        elif self.grid_size[0] < 60:
+            step = 60
         # right
-        for fx in float_range(Viewer.zero[0], Viewer.width+1, self.grid_size[0]):
+        c2 = (255,255,255)
+        for fx in float_range(Viewer.zero[0], Viewer.width+1, step):
             x = int(round(fx,0))
             pygame.draw.line(self.background, c, (x,0), (x, Viewer.height-Viewer.log_height),1)
-            write(self.background, "{:.1f}".format(pixel_to_gridvector((x,0))[0]),
-                  color=c, font_size=10, x= x-15, y=Viewer.height//2 +5, origin="topright")
+            write(self.background, axis_string.format(round(pixel_to_gridvector((x,0))[0],precision)),
+                  color=c2, font_size=10, x= x-15, y=5, origin="topright")
         # left
-        for fx in float_range(Viewer.zero[0], -1, -self.grid_size[0]):
+        for fx in float_range(Viewer.zero[0], -1, -step):
             x = int(round(fx, 0))
             pygame.draw.line(self.background, c, (x, 0), (x, Viewer.height - Viewer.log_height), 1)
-            write(self.background, "{:.2f}".format(pixel_to_gridvector((x, 0))[0]),
-                  color=c, font_size=10, x=x - 15, y=Viewer.height // 2 + 5, origin="topright")
+            write(self.background, axis_string.format(round(pixel_to_gridvector((x, 0))[0],precision)),
+                  color=c2, font_size=10, x=x - 15, y= 5, origin="topright")
         # lower
-        for fy in float_range(Viewer.zero[1], Viewer.height+1, self.grid_size[1]):
+        for fy in float_range(Viewer.zero[1], Viewer.height+1, step):
             y = int(round(fy,0))
             pygame.draw.line(self.background, c, (0,y), (Viewer.width, y),1)
-            write(self.background, "{:.1f}".format(pixel_to_gridvector((0,y))[1]),
-                  color=c, font_size=10, x= Viewer.width//2-5, y=y+2, origin="topright")
+            write(self.background, axis_string.format(round(pixel_to_gridvector((0,y))[1],precision)),
+                  color=c2, font_size=10, x= 5, y=y+2, origin="topleft")
         # upper
-        for fy in float_range(Viewer.zero[1], -1, -self.grid_size[1]):
+        for fy in float_range(Viewer.zero[1], -1, -step):
             y = int(round(fy,0))
             pygame.draw.line(self.background, c, (0,y), (Viewer.width, y),1)
-            write(self.background, "{:.1f}".format(pixel_to_gridvector((0,y))[1]),
-                  color=c, font_size=10, x= Viewer.width//2-5, y=y+2, origin="topright")
+            write(self.background, axis_string.format(round(pixel_to_gridvector((0,y))[1],precision)),
+                  color=c2, font_size=10, x= 5, y=y+2, origin="topleft")
         # --axis--
-        write(self.background, "X-axis --->", color=c, font_size=10, x=Viewer.width, y=Viewer.height//2 -5, origin="bottomright")
-        textsurface = make_text("--> Y", font_color=c, font_size=10)[0]
+        write(self.background, "X-axis --->", color=(255,255,255), font_size=10, x=Viewer.width-5, y=15, origin="topright")
+        textsurface = make_text("Y-axis -->", font_color=(255,255,255), font_size=10)[0]
         textsurface = pygame.transform.rotate(textsurface, -90)
-        self.background.blit(textsurface, (Viewer.width //2+5, Viewer.height - Viewer.log_height -35))
+        self.background.blit(textsurface, (15, Viewer.height - Viewer.log_height -75))
         # --legend on x-axis
-        write(self.background, "screen width {} pixel = {:.8f} AU".format(Viewer.width, Viewer.width / Viewer.grid_size[0]),
-                       color=c, font_size=10,x=15, y=Viewer.height//2-15)
+        write(self.background, "{} pixel = {:.8f} AU".format(Viewer.width, Viewer.width / Viewer.grid_size[0]),
+                       color=c2, font_size=10,x=Viewer.width, y=Viewer.height , origin="bottomright")
         # blit new background on screen, deleting everything
         self.screen.blit(self.background, (0, 0))  # overwrite everything
         self.dirtyrects = [self.background.get_rect()]
@@ -567,7 +590,10 @@ class Viewer():
             for p in self.planetgroup:
                 p.oldposlist = [] # kill old tracers
 
-
+    def display_help(self):
+        for i, line in enumerate(self.help):
+            Flytext(text=line, pos=pygame.math.Vector2(600, 200 + i * 50), move=pygame.math.Vector2(0, -40),
+                    kill_on_edge = True, acceleration_factor=1.00, color=(minmax(255-i*10,10,255),minmax(255-i*10,10,255), 255))
 
     def run(self):
         """The mainloop"""
@@ -577,7 +603,8 @@ class Viewer():
         self.draw_lazy = False
         self.dirtyrects = []
         self.draw_grid()
-
+        self.drag = False # dragging with mouse to pan the starmap
+        self.display_help()
         while running:
 
 
@@ -592,8 +619,9 @@ class Viewer():
                 p.pos = gridpos_to_pixelvector(p.planet.position)
 
         # ------ mouse handler ------
-            # left, middle, right = pygame.mouse.get_pressed()
-            # oldleft, oldmiddle, oldright = left, middle, right
+            #left, middle, right = pygame.mouse.get_pressed()
+
+            #oldleft, oldmiddle, oldright = left, middle, right
 
             # ------ joystick handler -------
             # for number, j in enumerate(self.joysticks):
@@ -611,12 +639,35 @@ class Viewer():
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
+                # ---- mouse events ----
+                if event.type == pygame.MOUSEBUTTONUP and event.button == 3:
+                    self.drag = False
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if event.button == 3:
+                        self.drag = True
+                    if event.button == 4: # mouse wheel scroll up
+                        self.resize_grid(Viewer.grid_size[0] * 1.1) # zoom in
+                        self.draw_grid()
+                    elif event.button == 5: # mouse wheel scroll down
+                        self.resize_grid(Viewer.grid_size[0] * 0.9)  # zoom out
+                        self.draw_grid()
+                #if event.type == pygame.MOUSEMOTION and self.drag:
+                #    # move the map
+                #    Viewer.zero[0] += event.pos[0]
+                #    Viewer.zero[1] += event.pos[1]
+                #    self.draw_grid()
+
                 # ------- pressed and released key ------
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         running = False
                     if event.key == pygame.K_SPACE:
                         self.game.paused = not self.game.paused
+                    if event.key == pygame.K_h:
+                        if len(self.flytextgroup) > 0:
+                            self.flytextgroup.empty()
+                        else:
+                            self.display_help()
                     if event.key == pygame.K_PAGEUP:
                         Game.i += 1
                         Game.i = minmax(Game.i, 0, len(Game.deltas)-1)
@@ -639,9 +690,6 @@ class Viewer():
                     # ----------- magic with ctrl key and dynamic key -----
                     # if pressed_keys[pygame.K_RCTRL] or pressed_keys[pygame.K_LCTRL]:
                     #if event.mod & pygame.KMOD_CTRL:  # any or both ctrl keys are pressed
-                    if event.key == pygame.K_x:
-                        Flytext(text="Hallo Horst", pos=pygame.math.Vector2(300, 300), move=pygame.math.Vector2(0, -10),
-                                max_age=15)
                     if event.key == pygame.K_KP_PLUS:
                         self.resize_grid(Viewer.grid_size[0]*1.1)
                         self.draw_grid()
@@ -655,27 +703,30 @@ class Viewer():
                         Viewer.zero = [Viewer.width//2, Viewer.height // 2]
                         self.draw_grid()
                     if event.key == pygame.K_KP4:
-                        Viewer.zero[0] += Viewer.grid_size[0]
+                        Viewer.zero[0] += 100 #Viewer.grid_size[0]
                         self.draw_grid()
                     if event.key == pygame.K_KP6:
-                        Viewer.zero[0] -= Viewer.grid_size[0]
+                        Viewer.zero[0] -= 100 #Viewer.grid_size[0]
                         self.draw_grid()
                     if event.key == pygame.K_KP8:
-                        Viewer.zero[1] += Viewer.grid_size[1]
+                        Viewer.zero[1] += 100 #Viewer.grid_size[1]
                         self.draw_grid()
                     if event.key == pygame.K_KP2:
-                        Viewer.zero[1] -= Viewer.grid_size[1]
+                        Viewer.zero[1] -= 100 #Viewer.grid_size[1]
                         self.draw_grid()
 
 
             # ============== draw screen =================
             if self.draw_lazy:
                self.allgroup.clear(self.screen, bgd=self.background)
+               self.flytextgroup.clear(self.screen, bgd=self.background)
             else:
                self.screen.blit(self.background, (0,0) ) # overwrite everything
             #self.draw_grid()
             self.allgroup.update(seconds)
+            self.flytextgroup.update(seconds)
             self.dirtyrects.extend(self.allgroup.draw(self.screen))
+            self.dirtyrects.extend(self.flytextgroup.draw(self.screen))
 
             for planet in self.planetgroup:
                 for i, pos in enumerate(planet.oldposlist):
@@ -688,11 +739,12 @@ class Viewer():
 
             # write text below sprites
 
-            status = "FPS: {:5.3} ".format(self.clock.get_fps())
+            status = "[h]: help "
             status += "[PgUp/PgDown]: timescale: 1 second = {} ".format(Game.deltas[Game.i][1])
             status += "[BACKSPACE]: {} drawing ".format("lazy" if self.draw_lazy else "clean")
             status += "[INS/DEL]: tracer length: {} ".format(PlanetSprite.history)
             status += "[SPACE]: Simulation {} ".format("paused" if self.game.paused else "running")
+            status += "FPS: {:5.3} ".format(self.clock.get_fps())
             textsurface, pos = make_text(status, font_color=(255,255,255),font_size=12, bold=True)
             pygame.draw.rect(self.screen, (0, 0, 0), (5, Viewer.height- pos[1], pos[0], pos[1]))
             self.screen.blit(textsurface, (5, Viewer.height - pos[1]))
